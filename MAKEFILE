@@ -1,0 +1,8 @@
+GLUTLIB=$(MAKEDIR)\..\Lib\PSDK
+
+.c.exe:
+	$(CC) $(CFLAGS) -L$(GLUTLIB) $&.c
+
+clean:
+	-@if exist *.obj del *.obj >nul
+	-@if exist *.tds del *.tds >nul
