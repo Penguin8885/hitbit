@@ -219,7 +219,7 @@ class Filed:
 class Menu:
     def __init__(self):
         self.menu_num = 4   # メニュー番号識別のための整数
-        self.filed = None   # フィールド
+        self.filed = Filed(size=50, friction=0.75, gravity=9.8)   # フィールド
         self.car_list = [\
                             Car(300, 10, 0.3, 200, 0.6, 1.0, [0,1,0]), \
                             Car(400,  5, 0.1, 260, 0.6, 1.5, [0,1,1]), \
@@ -227,7 +227,8 @@ class Menu:
                             Car(300, 10, 0.5, 200, 0.8, 1.0, [0,0,1]), \
                             Car(500, 15, 0.5, 300, 0.6, 1.0, [1,1,1]) \
                         ]   # 車のリスト
-        self.player_list = None # プレイヤーのリスト
+        self.player_list = \
+        [Player('yoshida', self.car_list[0], np.array([0,0,0]), np.array([0,0,0]), np.array([0,0,0]))] # プレイヤーのリスト
 
     @staticmethod
     def __printString(string, position, font, color=(1,1,1)):
@@ -267,9 +268,6 @@ class Menu:
         pass
 
     def __drawBattle(self):
-        self.filed = Filed(size=50, friction=0.75, gravity=9.8)
-        self.player_list = [Player('yoshida', self.car_list[0], np.array([0,0,0]), np.array([0,0,0]), np.array([0,0,0]))]
-
         glMatrixMode(GL_MODELVIEW)  # モデルビュー行列を選択
         glLoadIdentity()            # 単位行列で初期化
         gluLookAt(
@@ -278,10 +276,9 @@ class Menu:
             0.0, 0.0, 1.0
         )                           # カメラ視点を設定(モデルビュー行列を設定)
 
+        self.filed.draw()
         for player in self.player_list:
             player.drawCar()
-
-        self.filed.draw()
 
     def __drawBattleFinished(self):
         pass
