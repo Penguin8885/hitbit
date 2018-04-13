@@ -57,7 +57,7 @@ class Player:
 
     # 生存ステータス
     alive = 0
-    death = 1
+    dead = 1
 
     def __init__(self, name, car, position, velocity, direction):
         if name != None:
@@ -104,12 +104,12 @@ class Player:
 
     def update(self, input_key, delta_t, filed_size, filed_friction, gravity):
         # 落下済みの場合
-        if self.status == Player.death:
+        if self.status == Player.dead:
             return # 落下済みの場合，更新しないで終了
 
         # 落下中の場合
-        if abs(self.position[0]) > filed_size/2 or abs(self.position[1]) < filed_size/2:
-            self.velocity[2] -= gravity * delta_t # 重力加速度による落下処理
+        if abs(self.position[0]) > filed_size/2 or abs(self.position[1]) > filed_size/2:
+            self.velocity[2] -= gravity * delta_t   # 重力加速度による落下処理
 
         # 行動可能状態の場合
         else:
@@ -126,20 +126,23 @@ class Player:
                 pass # do nothing
 
             # 摩擦による減速
-            if np.linalg.norm(self.velocity) > 0.1:
-                # 速度が一定以上の場合，車の速度方向に合わせて減速する
-                self.velocity -= (filed_friction * self.car.mass * gravity) * delta_t \
-                                                * (self.velocity / np.linalg.norm(self.velocity))
-            else:
-                # 速度が一定以下の場合，完全に停止させる(0で初期化)
-                self.velocity = np.array([0,0,0])
+            #div = 100    # 摩擦計算のための時間分割数
+            #for i in range(div):
+            #    if np.linalg.norm(self.velocity) > 0.1:
+            #        # 速度が一定以上の場合，車の速度方向に合わせて減速する
+            #        self.velocity -= (filed_friction * gravity) * (delta_t/div) \ ####### 数式と違う．注意
+            #                                        * (self.velocity / np.linalg.norm(self.velocity))
+            #    else:
+            #        # 速度が一定以下の場合，完全に停止させる(0で初期化)
+            #        self.velocity = np.array([0,0,0])
 
         # 位置座標を更新
         self.position += self.velocity * delta_t
         if self.position[2] < -20:
-            self.status = Player.death
+            self.status = Player.dead
 
         # 座標とかの表示を標準出力にするといいかも．．．(未実装)
+        print(self.position, self.velocity)
 
     def __drawCar(self):
         glPushMatrix() # 前の設定行列をスタックにpushして退避
@@ -170,7 +173,7 @@ class Player:
         glEnd()                                 #描画を終了
 
     def drawCar(self):
-        if self.status == Player.death:
+        if self.status == Player.dead:
             return # 落下済みの場合は描画しないで終了
         self.__drawRing() # 車の周りにリングを描画
         self.__drawCar()  # 車本体を描画
@@ -221,14 +224,14 @@ class Menu:
         self.menu_num = 4   # メニュー番号識別のための整数
         self.filed = Filed(size=50, friction=0.75, gravity=9.8)   # フィールド
         self.car_list = [\
-                            Car(300, 10, 0.3, 200, 0.6, 1.0, [0,1,0]), \
-                            Car(400,  5, 0.1, 260, 0.6, 1.5, [0,1,1]), \
-                            Car(200, 15, 0.5, 100, 0.6, 0.8, [1,1,0]), \
-                            Car(300, 10, 0.5, 200, 0.8, 1.0, [0,0,1]), \
-                            Car(500, 15, 0.5, 300, 0.6, 1.0, [1,1,1]) \
+                            Car(300, 10, 3, 200, 0.6, 1.0, [0,1,0]), \
+                            Car(400,  5, 1, 260, 0.6, 1.5, [0,1,1]), \
+                            Car(200, 15, 5, 100, 0.6, 0.8, [1,1,0]), \
+                            Car(300, 10, 5, 200, 0.8, 1.0, [0,0,1]), \
+                            Car(500, 15, 5, 300, 0.6, 1.0, [1,1,1]) \
                         ]   # 車のリスト
         self.player_list = \
-        [Player('yoshida', self.car_list[0], np.array([0,0,0]), np.array([0,0,0]), np.array([0,0,0]))] # プレイヤーのリスト
+        [Player('yoshida', self.car_list[0], np.array([0,0,0], dtype=np.float), np.array([0,0,0],dtype=np.float), np.array([1,0,0],dtype=np.float))] # プレイヤーのリスト
 
     @staticmethod
     def __printString(string, position, font, color=(1,1,1)):
@@ -279,6 +282,7 @@ class Menu:
         self.filed.draw()
         for player in self.player_list:
             player.drawCar()
+            player.update(Player.key_up, 0.1, self.filed.size, self.filed.friction, self.filed.gravity)
 
     def __drawBattleFinished(self):
         pass
