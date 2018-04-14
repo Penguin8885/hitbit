@@ -36,7 +36,7 @@ class MobableObject: # (未実装)
     def __init__(self):
         pass
 
-    def update(self, delta_t, filed_size, filed_friction):
+    def update(self, filed_size, filed_friction):
         pass
 
 class UnmobableObject: # (未実装)
@@ -47,17 +47,13 @@ class UnmobableObject: # (未実装)
         pass
 
 class Player:
-    cpu_id_counter = 1 # 各CPUの番号付けのためのクラス変数
-
-    # キー入力のためのキーコード
-    key_up      = 1
-    key_down    = 2
-    key_left    = 3
-    key_right   = 4
+    cpu_id_counter = 1  # 各CPUの番号付けのためのクラス変数
 
     # 生存ステータス
-    alive = 0
-    dead = 1
+    ALIVE = 0
+    DEAD = 1
+
+    DELTA_T = 0.1 # 更新速度
 
     def __init__(self, name, car, position, velocity, direction):
         if name != None:
@@ -70,9 +66,10 @@ class Player:
         self.position = position    # 位置(ベクトル)[m]
         self.velocity = velocity    # 速度(ベクトル)[m/sec]
         self.direction = direction  # 車の向き(単位ベクトル)
-        self.status = Player.alive  # 生存ステータス
+        self.status = Player.ALIVE  # 生存ステータス
+        self.input_key = [False, False, False, False]   # 入力キー
 
-    def __accelerate(self, delta_t):
+    def __accelerate(self):
         # 車の向き(単位ベクトル)との内積から，車の向きの速さを求める
         head_velocity = self.velocity.dot(self.direction)
         if head_velocity < 0:
@@ -80,48 +77,51 @@ class Player:
 
         # トルクと質量から加速度を計算し，車の向きに合わせて加速
         if head_velocity < self.car.max_speed:
-            self.velocity += (self.car.torque / self.car.mass * delta_t) * self.direction
+            self.velocity += (self.car.torque / self.car.mass * self.DELTA_T) * self.direction
 
-    def __brake(self, delta_t):
+    def __brake(self):
         brake_coefficient = 10  # トルクからブレーキ性能を決める擬似的な係数
 
         # トルクとブレーキ係数，質量から減速度を計算し，車の速度方向に合わせて減速
         if np.linalg.norm(self.velocity) > 0:   # 速度があるときのみ
-            self.velocity -= (self.car.torque / self.car.mass * delta_t) * brake_coefficient \
+            self.velocity -= (self.car.torque / self.car.mass * self.DELTA_T) * brake_coefficient \
                                                 * (self.velocity / np.linalg.norm(self.velocity))
 
-    def __turnLeft(self, delta_t):
+    def __turnLeft(self):
         # ベクトルを回転角に変換，車の回転パラメータ(角速度)から新しい角度を求めて，ベクトルに戻す．左旋回
-        new_theta = np.arctan2(self.direction[1], self.direction[0]) + self.car.rotation * delta_t
+        new_theta = np.arctan2(self.direction[1], self.direction[0]) + self.car.rotation * self.DELTA_T
         self.direction[0] = np.cos(new_theta)
         self.direction[1] = np.sin(new_theta)
 
-    def __turnRight(self, delta_t):
+    def __turnRight(self):
         # ベクトルを回転角に変換，車の回転パラーメタ(角速度)から新しい角度を求めて，ベクトルに戻す．右旋回
-        new_theta = np.arctan2(self.direction[1], self.direction[0]) - self.car.rotation * delta_t
+        new_theta = np.arctan2(self.direction[1], self.direction[0]) - self.car.rotation * self.DELTA_T
         self.direction[0] = np.cos(new_theta)
         self.direction[1] = np.sin(new_theta)
 
-    def update(self, input_key, delta_t, filed_size, filed_friction, gravity):
+    def inputKey(self, key_array):
+        self.input_key = key_array
+
+    def update(self, filed_size, filed_friction, gravity):
         # 落下済みの場合
-        if self.status == Player.dead:
+        if self.status == Player.DEAD:
             return # 落下済みの場合，更新しないで終了
 
         # 落下中の場合
         if abs(self.position[0]) > filed_size/2 or abs(self.position[1]) > filed_size/2:
-            self.velocity[2] -= gravity * delta_t   # 重力加速度による落下処理
+            self.velocity[2] -= gravity * self.DELTA_T  # 重力加速度による落下処理
 
         # 行動可能状態の場合
         else:
             # 入力に従って，加速・減速・旋回
-            if input_key == Player.key_up:
-                self.__accelerate(delta_t)  # 加速
-            elif input_key == Player.key_down:
-                self.__brake(delta_t)       # ブレーキ
-            elif input_key == Player.key_left:
-                self.__turnLeft(delta_t)    # 左旋回
-            elif input_key == Player.key_right:
-                self.__turnRight(delta_t)   # 右旋回
+            if self.input_key[0] == True:
+                self.__accelerate()  # 加速
+            elif self.input_key[1] == True:
+                self.__brake()       # ブレーキ
+            elif self.input_key[2] == True:
+                self.__turnLeft()    # 左旋回
+            elif self.input_key[3] == True:
+                self.__turnRight()   # 右旋回
             else:
                 pass # do nothing
 
@@ -130,16 +130,16 @@ class Player:
             #for i in range(div):
             #    if np.linalg.norm(self.velocity) > 0.1:
             #        # 速度が一定以上の場合，車の速度方向に合わせて減速する
-            #        self.velocity -= (filed_friction * gravity) * (delta_t/div) \ ####### 数式と違う．注意
+            #        self.velocity -= (filed_friction * gravity) * (self.DELTA_T/div) \ ####### 数式と違う．注意
             #                                        * (self.velocity / np.linalg.norm(self.velocity))
             #    else:
             #        # 速度が一定以下の場合，完全に停止させる(0で初期化)
             #        self.velocity = np.array([0,0,0])
 
         # 位置座標を更新
-        self.position += self.velocity * delta_t
+        self.position += self.velocity * self.DELTA_T
         if self.position[2] < -20:
-            self.status = Player.dead
+            self.status = Player.DEAD
 
         # 座標とかの表示を標準出力にするといいかも．．．(未実装)
         print(self.position, self.velocity)
@@ -173,7 +173,7 @@ class Player:
         glEnd()                                 #描画を終了
 
     def drawCar(self):
-        if self.status == Player.dead:
+        if self.status == Player.DEAD:
             return # 落下済みの場合は描画しないで終了
         self.__drawRing() # 車の周りにリングを描画
         self.__drawCar()  # 車本体を描画
@@ -220,6 +220,9 @@ class Filed:
 
 
 class Menu:
+    key_arrow = [False, False, False, False]
+    bit_control_key = [ [False, False, False, False] for i in range(4)]
+
     def __init__(self):
         self.menu_num = 4   # メニュー番号識別のための整数
         self.filed = Filed(size=50, friction=0.75, gravity=9.8)   # フィールド
@@ -229,9 +232,9 @@ class Menu:
                             Car(200, 15, 5, 100, 0.6, 0.8, [1,1,0]), \
                             Car(300, 10, 5, 200, 0.8, 1.0, [0,0,1]), \
                             Car(500, 15, 5, 300, 0.6, 1.0, [1,1,1]) \
-                        ]   # 車のリスト
+                        ]   # 車のリスト (加速, 最高速, 旋回, 重量, 反発, 色)
         self.player_list = \
-        [Player('yoshida', self.car_list[0], np.array([0,0,0], dtype=np.float), np.array([0,0,0],dtype=np.float), np.array([1,0,0],dtype=np.float))] # プレイヤーのリスト
+        [Player('yoshida', self.car_list[0], np.array([0,0,0],dtype=np.float), np.array([0,0,0],dtype=np.float), np.array([1,0,0],dtype=np.float))] # プレイヤーのリスト
 
     @staticmethod
     def __printString(string, position, font, color=(1,1,1)):
@@ -282,7 +285,8 @@ class Menu:
         self.filed.draw()
         for player in self.player_list:
             player.drawCar()
-            player.update(Player.key_up, 0.1, self.filed.size, self.filed.friction, self.filed.gravity)
+            player.inputKey(self.key_arrow)
+            player.update(self.filed.size, self.filed.friction, self.filed.gravity)
 
     def __drawBattleFinished(self):
         pass
@@ -311,9 +315,10 @@ def main():
     initialize()                                    # 初期化
     glutDisplayFunc(display)                        # 描画処理
     glutReshapeFunc(resize)                         # ウィンドウサイズ変更時の処理
-    # glutKeyboardFunc(pressKey)                      # キーボード入力時の処理
-    # glutSpecialFunc(pressSpKey)                     # 特殊キー入力時の処理
-    # glutKeyboardUpFunc(upKey)                       # キーボードを離した時の処理
+    glutKeyboardFunc(keyboardIn)                    # キーボード入力時の処理
+    glutKeyboardUpFunc(keyboardOut)                 # キーボードを離した時の処理
+    glutSpecialFunc(keyboardSpIn)                   # 特殊キー入力時の処理
+    glutSpecialUpFunc(keyboardSpOut)                # 特殊キーを離したときの処理
     redisplayLoop(0)                                # 描画ループ
     glutMainLoop()                                  # 処理ループ
 
@@ -345,6 +350,36 @@ def redisplayLoop(dummy):
     glutPostRedisplay()                     # 再描画要請
     glutTimerFunc(100, redisplayLoop, 0)    # 100ms毎に再帰させる, 3つ目の引数はdummy
 
+def keyboardIn(key, x, y):
+    # x,yはkey入力時のマウス位置
+    pass
+
+def keyboardOut(key, x, y):
+    # x,yはkey入力時のマウス位置
+    pass
+
+def keyboardSpIn(key, x, y):
+    # x,yはkey入力時のマウス位置
+    if key == GLUT_KEY_UP:
+        Menu.key_arrow[0] = True
+    elif key == GLUT_KEY_DOWN:
+        Menu.key_arrow[1] = True
+    elif key == GLUT_KEY_LEFT:
+        Menu.key_arrow[2] = True
+    elif key == GLUT_KEY_RIGHT:
+        Menu.key_arrow[3] = True
+
+def keyboardSpOut(key, x, y):
+    # x,yはkey入力時のマウス位置
+    print('key out')
+    if key == GLUT_KEY_UP:
+        Menu.key_arrow[0] = False
+    elif key == GLUT_KEY_DOWN:
+        Menu.key_arrow[1] = False
+    elif key == GLUT_KEY_LEFT:
+        Menu.key_arrow[2] = False
+    elif key == GLUT_KEY_RIGHT:
+        Menu.key_arrow[3] = False
 
 if __name__ == '__main__':
     main()
