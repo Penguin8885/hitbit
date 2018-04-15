@@ -110,7 +110,7 @@ class Player:
         sight = player_list[d_min_index].position - self.position   # 照準ベクトル
         sight = sight / np.linalg.norm(sight)                       # 正規化
 
-        dot = np.dot(self.direction, sight)             # 内積
+        dot = self.direction.dot(sight)                 # 内積
         cross_z = np.cross(self.direction, sight)[2]    # 外積のz成分のみ
 
         if np.linalg.norm(self.velocity) > self.car.max_speed or d_min_index == -1:
@@ -341,7 +341,7 @@ class Menu:
                     # v2' = v2 + [m1/(m1+m2) * (1+e) * (v1-v2)・(x2-x1)] * (x2-x1)
                     total_mass = player_i.car.mass + player_j.car.mass
                     total_bounce = 1 + player_i.car.bounce * player_j.car.bounce
-                    dot = np.dot(player_i.velocity - player_j.velocity, sub_x)
+                    dot = (player_i.velocity - player_j.velocity).dot(sub_x)
                     sub_tilde = ((total_bounce / total_mass) * dot) * sub_x
                     sub_tilde *= r_in / distance * 0.9 # bitの重なり防止のための擬似的な反発係数(距離に反比例)
                     self.player_list[i].velocity -= player_j.car.mass * sub_tilde
