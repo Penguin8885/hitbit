@@ -98,8 +98,8 @@ class Player:
         d_min = np.inf      # 距離が一番近いplayerまでの距離
         d_min_index = -1    # 距離が一番近いplayerのインデックス
         for i, player in enumerate(player_list):
-            if player.status == Player.DEAD or player == self:
-                continue    # 相手が死んでいるとき，相手が自分であるときスキップ
+            if player.position[2] < 0 or player == self:
+                continue    # 相手が場外(死んでいない)のとき，相手が自分であるときスキップ
             else:
                 # 一番近いplayerを探す
                 distance = np.linalg.norm(self.position - player.position)
@@ -168,11 +168,9 @@ class Player:
                     self.velocity = np.array([0,0,0], dtype=np.float)
 
         # 位置座標を更新
-        div = 100   # bitの重なり防止のための時間分割数
-        for i in range(div):
-            self.position += self.velocity * (Player.DELTA_T/div)
-            if self.position[2] < -20:
-                self.status = Player.DEAD
+        self.position += self.velocity * Player.DELTA_T
+        if self.position[2] < -20:
+            self.status = Player.DEAD
 
     def __drawCar(self):
         glPushMatrix() # 前の設定行列をスタックにpushして退避
@@ -336,6 +334,10 @@ class Menu:
 
                 # 衝突しているとき
                 else:
+                    if distance < 0.1: # bitの重なり防止のランダム反発
+                        sub_x[0] += np.random.rand()*0.5
+                        player_i.velocity[1] += np.random.rand(0.5)
+
                     # 運動量保存則から導いた円の衝突の更新式により更新
                     # v1' = v1 - [m2/(m1+m2) * (1+e) * (v1-v2)・(x2-x1)] * (x2-x1)
                     # v2' = v2 + [m1/(m1+m2) * (1+e) * (v1-v2)・(x2-x1)] * (x2-x1)
@@ -343,9 +345,11 @@ class Menu:
                     total_bounce = 1 + player_i.car.bounce * player_j.car.bounce
                     dot = (player_i.velocity - player_j.velocity).dot(sub_x)
                     sub_tilde = ((total_bounce / total_mass) * dot) * sub_x
-                    sub_tilde *= r_in / distance * 0.9 # bitの重なり防止のための擬似的な反発係数(距離に反比例)
-                    self.player_list[i].velocity -= player_j.car.mass * sub_tilde
-                    self.player_list[j].velocity += player_i.car.mass * sub_tilde
+
+                    sub_tilde *= r_in / distance * 0.85 # bitの重なり防止のための擬似的な反発係数(距離に反比例)
+
+                    self.player_list[i].velocity += -player_j.car.mass * sub_tilde
+                    self.player_list[j].velocity += +player_i.car.mass * sub_tilde
 
                 # jをインクリメント
                 j += 1
@@ -428,78 +432,78 @@ def redisplayLoop(dummy):
 def keyboardIn(key, x, y):
     # x,yはkey入力時のマウス位置
     # ユーザー1
-    if key == b'q':
+    if key == b'e':
         Menu.bit_control_key[0][2] = True
-    elif key == b'w':
+    elif key == b'r':
         Menu.bit_control_key[0][3] = True
-    elif key == b'y':
-        Menu.bit_control_key[0][0] = True
     elif key == b'u':
+        Menu.bit_control_key[0][0] = True
+    elif key == b'i':
         Menu.bit_control_key[0][1] = True
     # ユーザー2
-    elif key == b'a':
+    elif key == b'd':
         Menu.bit_control_key[1][2] = True
-    elif key == b's':
+    elif key == b'f':
         Menu.bit_control_key[1][3] = True
-    elif key == b'h':
-        Menu.bit_control_key[1][0] = True
     elif key == b'j':
+        Menu.bit_control_key[1][0] = True
+    elif key == b'k':
         Menu.bit_control_key[1][1] = True
     # ユーザー3
-    elif key == b'z':
+    elif key == b'c':
         Menu.bit_control_key[2][2] = True
-    elif key == b'x':
+    elif key == b'v':
         Menu.bit_control_key[2][3] = True
-    elif key == b'n':
-        Menu.bit_control_key[2][0] = True
     elif key == b'm':
+        Menu.bit_control_key[2][0] = True
+    elif key == b',':
         Menu.bit_control_key[2][1] = True
     # ユーザー4
-    elif key == b'1':
+    elif key == b'3':
         Menu.bit_control_key[3][2] = True
-    elif key == b'2':
+    elif key == b'4':
         Menu.bit_control_key[3][3] = True
-    elif key == b'6':
-        Menu.bit_control_key[3][0] = True
     elif key == b'7':
+        Menu.bit_control_key[3][0] = True
+    elif key == b'8':
         Menu.bit_control_key[3][1] = True
 
 def keyboardOut(key, x, y):
     # x,yはkey入力時のマウス位置
-    if key == b'q':
+    if key == b'e':
         Menu.bit_control_key[0][2] = False
-    elif key == b'w':
+    elif key == b'r':
         Menu.bit_control_key[0][3] = False
-    elif key == b'y':
-        Menu.bit_control_key[0][0] = False
     elif key == b'u':
+        Menu.bit_control_key[0][0] = False
+    elif key == b'i':
         Menu.bit_control_key[0][1] = False
     # ユーザー2
-    elif key == b'a':
+    elif key == b'd':
         Menu.bit_control_key[1][2] = False
-    elif key == b's':
+    elif key == b'f':
         Menu.bit_control_key[1][3] = False
-    elif key == b'h':
-        Menu.bit_control_key[1][0] = False
     elif key == b'j':
+        Menu.bit_control_key[1][0] = False
+    elif key == b'k':
         Menu.bit_control_key[1][1] = False
     # ユーザー3
-    elif key == b'z':
+    elif key == b'c':
         Menu.bit_control_key[2][2] = False
-    elif key == b'x':
+    elif key == b'v':
         Menu.bit_control_key[2][3] = False
-    elif key == b'n':
-        Menu.bit_control_key[2][0] = False
     elif key == b'm':
+        Menu.bit_control_key[2][0] = False
+    elif key == b',':
         Menu.bit_control_key[2][1] = False
     # ユーザー4
-    elif key == b'1':
+    elif key == b'3':
         Menu.bit_control_key[3][2] = False
-    elif key == b'2':
+    elif key == b'4':
         Menu.bit_control_key[3][3] = False
-    elif key == b'6':
-        Menu.bit_control_key[3][0] = False
     elif key == b'7':
+        Menu.bit_control_key[3][0] = False
+    elif key == b'8':
         Menu.bit_control_key[3][1] = False
 
 def keyboardSpIn(key, x, y):
@@ -515,7 +519,6 @@ def keyboardSpIn(key, x, y):
 
 def keyboardSpOut(key, x, y):
     # x,yはkey入力時のマウス位置
-    print('key out')
     if key == GLUT_KEY_UP:
         Menu.key_arrow[0] = False
     elif key == GLUT_KEY_DOWN:
