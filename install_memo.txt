@@ -2,7 +2,7 @@
 
 1. pyopenglの公式サイトからpythonのバーションを確認
 	http://pyopengl.sourceforge.net/
-2. 対応するpythonをインストール(version 3.3)
+2. 対応するpythonをインストール(version 3.3以上)
 3. pip install PyOpenGL PyOpenGL_accelerate
 4. freeglut MSVC 3.0.0 をサイトからダウンロード
 	https://www.transmissionzero.co.uk/software/freeglut-devel/
