@@ -250,28 +250,28 @@ class Filed:
 
 class Menu:
     def __init__(self):
-        self.ortho_size = 50     # 画面表示サイズ
+        self.ortho_size = 50                    # 画面表示サイズ
+        self.menu_num = 0                       # メニュー番号識別のための整数
+
         self.enter_key = False                                                   # Enterキー入力
         self.arrow_key = {'up':False, 'down':False, 'left':False, 'right':False} # 矢印キー入力
         self.bit_control_key = [ [False, False, False, False] for i in range(4)] # 各ユーザーのキー入力
 
-        self.menu_num = 0   # メニュー番号識別のための整数
-
-        self.setting_menu_row = 0
-        self.user_num_list = [1, 2, 3, 4, 0]
-        self.user_num_index = 0
-        self.cpu_num_list = [5, 10, 50, 0]
-        self.cpu_num_index = 0
-        self.filed_num_list = [50, 100, 20]
-        self.filed_num_index = 0
+        self.setting_menu_row = 0               # 設定画面メニュー選択行
+        self.user_num_list = [1, 2, 3, 4, 0]    # ユーザー数の選択リスト
+        self.user_num_index = 0                 # 選択しているユーザー数の選択リストのインデックス
+        self.cpu_num_list = [5, 10, 50, 0]      # CPU数の選択リスト
+        self.cpu_num_index = 0                  # 選択しているCPU数の選択リストのインデックス
+        self.filed_num_list = [50, 100, 20]     # フィールドサイズの選択リスト
+        self.filed_num_index = 0                # 選択しているフィールドサイズの選択リストのインデックス
 
         self.car_list = [\
-            Car(600, 10, 3, 50, 0.6, 1.0, [0,1,0]), \
-            Car(600,  5, 1, 50, 0.6, 1.5, [0,1,1]), \
-            Car(600, 15, 5, 50, 0.6, 0.8, [1,1,0]), \
-            Car(600, 10, 5, 50, 0.8, 1.0, [0,0,1]), \
-            Car(600, 15, 5, 50, 0.6, 1.0, [1,1,1]) \
-        ]   # 車のリスト (加速, 最高速, 旋回, 重量, 反発, サイズ, 色)
+            Car(600, 10, 5, 50, 0.6, 1.0, [0,1,0]), \
+            Car(600, 10, 5, 50, 0.6, 1.0, [0,1,1]), \
+            Car(600, 10, 5, 50, 0.6, 1.0, [1,1,0]), \
+            Car(600, 10, 5, 50, 0.6, 1.0, [0,0,1]), \
+            Car(600, 10, 5, 50, 0.6, 1.0, [1,1,1]) \
+        ]   # bit carのリスト (加速, 最高速, 旋回, 重量, 反発, サイズ, 色)
 
         self.model = Player(
             'model',
@@ -279,13 +279,13 @@ class Menu:
             np.array([0,0,0],dtype=np.float),
             np.array([0,0,0],dtype=np.float),
             np.array([1,0,0],dtype=np.float)
-        )
-        self.model_index = 0
-        self.model_show_angle = 0
-        self.user_car_list = []
+        )                                       # bit car選択画面の表示するモデル
+        self.model_index = 0                    # モデルのbit carの種類を指すインデックス
+        self.model_show_angle = 0               # モデルの回転表示用の回転角
+        self.user_car_list = []                 # ユーザーが選択したbit carのリスト
 
-        self.filed = None       # フィールド
-        self.player_list = []   # プレイヤー(ユーザーとCPU)のリスト
+        self.filed = None                       # フィールド
+        self.player_list = []                   # プレイヤー(ユーザーとCPU)のリスト
 
     @staticmethod
     def __printString(string, position, font, color=(1,1,1)):
@@ -297,21 +297,21 @@ class Menu:
 
     def draw(self):
         if self.menu_num == 0:
-            self.__drawTitle()          # タイトル画面
+            self.__drawTitle()            # タイトル画面
         elif self.menu_num == 1:
-            self.__drawSettingMenu()    # 設定画面
+            self.__drawSettingMenu()      # 設定画面
         elif self.menu_num == 2:
-            self.__drawCarSelectionMenu # 車選択画面
+            self.__drawCarSelectionMenu() # 車選択画面
         elif self.menu_num == 3:
-            self.__drawBattleStartCount # バトル画面 スタートカウント
+            self.__drawBattleStartCount() # バトル画面 スタートカウント
         elif self.menu_num == 4:
-            self.__drawBattle()         # バトル画面
+            self.__drawBattle()           # バトル画面
         elif self.menu_num == 5:
-            self.__drawBattleFinished   # バトル画面 終了表示
+            self.__drawBattleFinished()   # バトル画面 終了表示
         elif self.menu_num == 6:
-            self.__drawWinner           # 勝者表示画面
+            self.__drawWinner()           # 勝者表示画面
         elif self.menu_num == 7:
-            self.__drawRecord           # 戦闘履歴画面(未実装)
+            self.__drawRecord()           # 戦闘履歴画面(未実装)
 
     def __drawTitle(self):
         glMatrixMode(GL_MODELVIEW)  # モデルビュー行列を選択
@@ -365,7 +365,7 @@ class Menu:
             self.arrow_key['down'] = False      # 連続入力防止
             self.setting_menu_row = (self.setting_menu_row + 1) % 3
         # メニュー左右移動
-        bracket = b'<                                    >'     # 現在選択中のメニューの囲い
+        bracket = '<                                    >'     # 現在選択中のメニューの囲い
         if self.setting_menu_row == 0:
             Menu.__printString(bracket, (-10, 10, 0), GLUT_BITMAP_HELVETICA_18)
             if self.arrow_key['left'] == True:      # 左移動
@@ -412,12 +412,12 @@ class Menu:
 
         # bit carの情報を表示
         Menu.__printString(
-            'PLAYER ' + str(len(self.user_car_list)+1) + '                ').encode('utf-8') ),
+            'PLAYER ' + str(len(self.user_car_list)+1) + '                ',
             (20, 0, 20),
             GLUT_BITMAP_TIMES_ROMAN_24
         )   # 現在選択しているプレイヤー名
         Menu.__printString(
-            'Bit Size ' + str(self.model.car.size * 10) + '              ').encode('utf-8') ),
+            'Bit Size ' + str(self.model.car.size * 10) + '              ',
             (0, 0, -17),
             GLUT_BITMAP_HELVETICA_18
         )   # bit carのサイズ
@@ -443,19 +443,22 @@ class Menu:
         )   # bit carの旋回性能
 
         # bit carのモデルを表示
-        glPushMatrix()                          # 前の設定行列をスタックして退避
-        glRotated(self.car_show_angle, 0, 0, 1) # 回転
-        glScaled(10, 10, 10)                    # 拡大
-        self.model.drawCarBody()                # 車のボディを表示
-        glPopMatrix()                           # 前の設定行列をスタックから取り出して復帰
+        glPushMatrix()                              # 前の設定行列をスタックして退避
+        glRotated(self.model_show_angle, 0, 0, 1)   # 回転
+        glScaled(10, 10, 10)                        # 拡大
+        self.model.drawCarBody()                    # 車のボディを表示
+        glPopMatrix()                               # 前の設定行列をスタックから取り出して復帰
 
-        if self.arrow_key['left'] == True:      # 左移動
-            self.arrow_key['left'] = False      # 連続入力防止
+        # メニュー左右選択
+        if self.arrow_key['left'] == True:          # 左移動
+            self.arrow_key['left'] = False          # 連続入力防止
             self.model_index = (self.model_index + len(self.car_list) - 1) % len(self.car_list)
-        elif self.arrow_key['right'] == True:   # 右移動
-            self.arrow_key['right'] = False     # 連続入力防止
-            self.model_index = (self.model_index + 1) % len(self.car_list)
+            self.model.car = self.car_list[self.model_index] # bit carの切り替え
 
+        elif self.arrow_key['right'] == True:       # 右移動
+            self.arrow_key['right'] = False         # 連続入力防止
+            self.model_index = (self.model_index + 1) % len(self.car_list)
+            self.model.car = self.car_list[self.model_index] # bit carの切り替え
 
         # Enterキーで次のメニューへ
         if self.enter_key == True:
@@ -464,20 +467,14 @@ class Menu:
 
             if len(self.user_car_list) >= self.user_num_list[self.user_num_index]:
                 # 全員のbit carの選択が終了したとき
-                self.__setGameContent()         # ゲーム内容の設定
-                self.menu_num += 1              # 次のメニューへ移動
+                self.__setGameContent()             # ゲーム内容の設定
+                self.menu_num += 1                  # 次のメニューへ移動
 
             else:
                 # 全員のbit carの選択が終了していないとき
-                self.model = Player(
-                    'model',
-                    self.car_list[0],
-                    np.array([0,0,0],dtype=np.float),
-                    np.array([0,0,0],dtype=np.float),
-                    np.array([1,0,0],dtype=np.float)
-                )                               # 次の選択のために表示をリセット
-                self.model_index = 0            # 次の選択のために表示をリセット
-                self.model_show_angle = 0       # 次の選択のために表示をリセット
+                self.model.car = self.car_list[0]   # 次の選択のために表示をリセット
+                self.model_index = 0                # 次の選択のために表示をリセット
+                self.model_show_angle = 0           # 次の選択のために表示をリセット
 
         # 表示角度を変更
         self.model_show_angle += 5
@@ -485,9 +482,9 @@ class Menu:
     def __setGameContent(self):
         # フィールドの設定
         self.filed = Filed(
-            size = self.filed_num_list[self.filed_num_index] # フィールドのサイズ
-            friction = 0.75                                  # 摩擦係数
-            gravity = 9.8                                    # 重力加速度
+            size = self.filed_num_list[self.filed_num_index],   # フィールドのサイズ
+            friction = 0.75,                                    # 摩擦係数
+            gravity = 9.8                                       # 重力加速度
         )
 
         # プレイヤー数を取得
@@ -503,8 +500,8 @@ class Menu:
         for i in range(user_num):
             x = np.cos(theta)
             y = np.sin(theta)
-            p_x = (self.filed.size/4)*x
-            p_y = (self.filed.size/4)*y
+            p_x = (self.filed.size / 4) * x
+            p_y = (self.filed.size / 4) * y
             theta += d_theta
 
             user = Player(
@@ -520,8 +517,8 @@ class Menu:
         for i in range(cpu_num):
             x = np.cos(theta)
             y = np.sin(theta)
-            p_x = (self.filed.size/4)*x
-            p_y = (self.filed.size/4)*y
+            p_x = (self.filed.size / 4) * x
+            p_y = (self.filed.size / 4) * y
             theta += d_theta
 
             cpu = Player(
@@ -544,7 +541,7 @@ class Menu:
         )                                   # 描画領域を設定(投影行列を設定)
 
     def __drawBattleStartCount(self):
-        pass
+        self.menu_num += 1
 
     def __drawBattle(self):
         glMatrixMode(GL_MODELVIEW)  # モデルビュー行列を選択
@@ -597,6 +594,7 @@ class Menu:
                 j += 1
 
         # bitの描画及びコントロール，更新
+        alive_count = 0
         for i, player in enumerate(self.player_list):
             if player.type == Player.TYPE_USER:
                 player.drawCar()                                # 描画
@@ -606,6 +604,13 @@ class Menu:
                 player.drawCar()                                # 描画
                 player.calcAutoControl(self.player_list)        # オートコントロール
                 player.update(self.filed.size, self.filed.friction, self.filed.gravity) # 更新
+
+            if player.status == Player.ALIVE:
+                alive_count += 1
+
+        # 試合終了判定(生存者が0人または1人)
+        if alive_count == 0 or alive_count == 1:
+            self.menu_num += 1   # 次のメニューへ移動
 
 
     def __drawBattleFinished(self):
