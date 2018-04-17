@@ -45,7 +45,7 @@ class Player:
     ALIVE = 0
     DEAD  = 1
 
-    DELTA_T = 0.1 # 更新速度[sec]
+    DELTA_T = None # 更新速度[sec]
 
     def __init__(self, name, car, position, velocity, direction):
         if name != None:
@@ -250,7 +250,9 @@ class Filed:
 
 class Menu:
     def __init__(self):
-        self.ortho_size = 50                    # 画面表示サイズ
+        self.delta_t = 0.1                      # 画面の更新速度
+        Player.DELTA_T = self.delta_t           # Playerクラスの更新速度を設定
+        self.ortho_size = 50                    # 画面の表示サイズ
         self.menu_num = 0                       # メニュー番号識別のための整数
 
         self.enter_key = False                                                   # Enterキー入力
@@ -286,6 +288,8 @@ class Menu:
 
         self.filed = None                       # フィールド
         self.player_list = []                   # プレイヤー(ユーザーとCPU)のリスト
+
+        self.wait = 0                           # 画面停止(カウントダウン)のための変数
 
     @staticmethod
     def __printString(string, position, font, color=(1,1,1)):
@@ -358,12 +362,13 @@ class Menu:
         ) # フィールドのサイズ
 
         # メニュー上下移動
-        if self.arrow_key['up'] == True:        # 上移動
-            self.arrow_key['up'] = False        # 連続入力防止
+        if self.arrow_key['up'] == True:            # 上移動
+            self.arrow_key['up'] = False            # 連続入力防止
             self.setting_menu_row = (self.setting_menu_row + 2) % 3
-        elif self.arrow_key['down'] == True:    # 下移動
+        elif self.arrow_key['down'] == True:        # 下移動
             self.arrow_key['down'] = False      # 連続入力防止
             self.setting_menu_row = (self.setting_menu_row + 1) % 3
+
         # メニュー左右移動
         bracket = '<                                    >'     # 現在選択中のメニューの囲い
         if self.setting_menu_row == 0:
@@ -492,7 +497,7 @@ class Menu:
         cpu_num = self.cpu_num_list[self.cpu_num_index]
         player_num = user_num + cpu_num
 
-        # プレイヤー配置のための変数
+        # プレイヤーを円形に配置のための変数
         theta = 0
         d_theta = 2*np.pi / player_num
 
@@ -505,11 +510,11 @@ class Menu:
             theta += d_theta
 
             user = Player(
-                'User' + str(i),                    # ユーザー名
+                'User' + str(i+1),                  # ユーザー名
                 self.user_car_list[i],              # bit car
                 np.array([p_x,p_y,0], np.float),    # 初期位置
                 np.array([0,0,0], np.float),        # 初期速度
-                np.array([x,y,0], np.float)         # 初期角度
+                np.array([-x,-y,0], np.float)       # 初期角度
             )
             self.player_list.append(user)           # リストに追加
 
@@ -526,12 +531,12 @@ class Menu:
                 self.car_list[0],                   # bit car
                 np.array([p_x,p_y,0], np.float),    # 初期位置
                 np.array([0,0,0], np.float),        # 初期速度
-                np.array([x,y,0], np.float)         # 初期角度
+                np.array([-x,-y,0], np.float)       # 初期角度
             )
             self.player_list.append(cpu)            # リストに追加
 
         # 視点の設定
-        self.ortho_size = self.filed.size   # 射影を設定
+        self.ortho_size = self.filed.size   # 描画領域の数値を設定
         glMatrixMode(GL_PROJECTION)         # 投影行列を選択
         glLoadIdentity()                    # 単位行列で初期化
         glOrtho(
@@ -541,7 +546,42 @@ class Menu:
         )                                   # 描画領域を設定(投影行列を設定)
 
     def __drawBattleStartCount(self):
-        self.menu_num += 1
+        glMatrixMode(GL_MODELVIEW)  # モデルビュー行列を選択
+        glLoadIdentity()            # 単位行列で初期化
+        gluLookAt(
+            0.2, -1.0, 1.0,
+            0.0, 0.0, 0.0,
+            0.0, 0.0, 1.0
+        )                           # カメラ視点を設定(モデルビュー行列を設定)
+
+        self.filed.draw()           # 地面を描画
+
+        for i, player in enumerate(self.player_list):
+            player.drawCar()            # bit car描画
+            Menu.__printString(
+                player.name,            # 表示名
+                player.position + 0.8,  # 表示位置(ブロードキャストに注意)
+                GLUT_BITMAP_8_BY_13     # フォント
+            ) # プレイヤー名を表示
+
+        # カウントダウンを表示
+        if self.wait < 5:
+            string = str(int(6 - self.wait))    # 5秒間カウントダウン
+        else:
+            string = 'START'                    # 最後1秒は'START'を表示
+        Menu.__printString(
+            string,
+            (0, 20, 20),
+            GLUT_BITMAP_HELVETICA_18
+            color=(1,0,1)
+        ) # 文字列表示
+
+        # カウントダウンを計算
+        if self.wait < 6:
+            self.wait += self.delta_t   # 時間を加算
+        else:
+            self.wait = 0               # 待ち時間を初期化
+            self.menu_num += 1          # 次のメニューへ移動
 
     def __drawBattle(self):
         glMatrixMode(GL_MODELVIEW)  # モデルビュー行列を選択
@@ -597,14 +637,15 @@ class Menu:
         alive_count = 0
         for i, player in enumerate(self.player_list):
             if player.type == Player.TYPE_USER:
-                player.drawCar()                                # 描画
+                player.drawCar()                                # bit car描画
                 player.inputKey(self.bit_control_key[i])        # コントロールキー入力
                 player.update(self.filed.size, self.filed.friction, self.filed.gravity) # 更新
             else:
-                player.drawCar()                                # 描画
+                player.drawCar()                                # bit car描画
                 player.calcAutoControl(self.player_list)        # オートコントロール
                 player.update(self.filed.size, self.filed.friction, self.filed.gravity) # 更新
 
+            # 生存者をカウント
             if player.status == Player.ALIVE:
                 alive_count += 1
 
@@ -614,7 +655,42 @@ class Menu:
 
 
     def __drawBattleFinished(self):
-        pass
+        glMatrixMode(GL_MODELVIEW)  # モデルビュー行列を選択
+        glLoadIdentity()            # 単位行列で初期化
+        gluLookAt(
+            0.2, -1.0, 1.0,
+            0.0, 0.0, 0.0,
+            0.0, 0.0, 1.0
+        )                           # カメラ視点を設定(モデルビュー行列を設定)
+
+        self.filed.draw()           # 地面を描画
+        for i, player in enumerate(self.player_list):
+            player.drawCar()        # bit car描画
+        Menu.__printString(
+            'FINISH'
+            (0, 20, 20)
+            GLUT_BITMAP_HELVETICA_18,
+            color=(1,0,1)
+        )                           # 'FINISH'を描画
+
+        # カウントダウンを計算
+        if self.wait < 3:
+            wait += self.delta_t
+        else:
+            self.wait = 0       # 待ち時間を初期化
+
+            # 視点をリセット
+            self.ortho_size = self.filed.size   # 描画領域の数値を設定
+            glMatrixMode(GL_PROJECTION)         # 投影行列を選択
+            glLoadIdentity()                    # 単位行列で初期化
+            glOrtho(
+                -self.ortho_size, self.ortho_size,
+                -self.ortho_size, self.ortho_size,
+                -self.ortho_size, self.ortho_size
+            )                                   # 描画領域を設定(投影行列を設定)
+
+            self.menu_num += 1  # 次のメニューへ移動
+
 
     def __drawWinner(self):
         pass
@@ -672,9 +748,8 @@ def resize(w, h):
     )                                   # 描画領域を設定(投影行列を設定)
 
 def redisplayLoop(dummy):
-    glutPostRedisplay()                     # 再描画要請
-    glutTimerFunc(100, redisplayLoop, 0)    # 100ms毎に再帰させる, 3つ目の引数はdummy
-                                            # 更新速度を変更する場合，PlayerクラスのDELTA_Tも変更
+    glutPostRedisplay()                                     # 再描画要請
+    glutTimerFunc(int(menu.delta_t*1000), redisplayLoop, 0) # 一定時間毎に再帰させる, 3つ目の引数はdummy
 
 def keyboardIn(key, x, y):
     # x,yはkey入力時のマウス位置
