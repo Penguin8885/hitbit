@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
@@ -172,7 +174,7 @@ class Player:
         if self.position[2] < -20:
             self.status = Player.DEAD
 
-    def __drawCar(self):
+    def drawCarBody(self):
         glPushMatrix() # 前の設定行列をスタックにpushして退避
 
         glTranslatef(self.position[0], self.position[1], self.position[2])                  # 車の位置を設定
@@ -204,7 +206,7 @@ class Player:
         if self.status == Player.DEAD:
             return # 落下済みの場合は描画しないで終了
         self.__drawRing() # 車の周りにリングを描画
-        self.__drawCar()  # 車本体を描画
+        self.drawCarBody()  # 車本体を描画
 
 class Filed:
     def __init__(self, size, friction, gravity):
@@ -247,12 +249,22 @@ class Filed:
         self.__drawAxis()
 
 class Menu:
-    key_arrow = [False, False, False, False]                            # 矢印キー入力
-    bit_control_key = [ [False, False, False, False] for i in range(4)] # 各ユーザーのキー入力
-
     def __init__(self):
-        self.menu_num = 4   # メニュー番号識別のための整数
-        self.filed = Filed(size=100, friction=0.75, gravity=9.8)   # フィールド
+        self.ortho_size = 50     # 画面表示サイズ
+        self.enter_key = False                                                   # Enterキー入力
+        self.arrow_key = {'up':False, 'down':False, 'left':False, 'right':False} # 矢印キー入力
+        self.bit_control_key = [ [False, False, False, False] for i in range(4)] # 各ユーザーのキー入力
+
+        self.menu_num = 0   # メニュー番号識別のための整数
+
+        self.setting_menu_row = 0
+        self.user_num_list = [1, 2, 3, 4, 0]
+        self.user_num_index = 0
+        self.cpu_num_list = [5, 10, 50, 0]
+        self.cpu_num_index = 0
+        self.filed_num_list = [50, 100, 20]
+        self.filed_num_index = 0
+
         self.car_list = [\
             Car(600, 10, 3, 50, 0.6, 1.0, [0,1,0]), \
             Car(600,  5, 1, 50, 0.6, 1.5, [0,1,1]), \
@@ -260,15 +272,24 @@ class Menu:
             Car(600, 10, 5, 50, 0.8, 1.0, [0,0,1]), \
             Car(600, 15, 5, 50, 0.6, 1.0, [1,1,1]) \
         ]   # 車のリスト (加速, 最高速, 旋回, 重量, 反発, サイズ, 色)
-        self.player_list = [\
-            Player('yoshida', self.car_list[0], np.array([0,-1,0],dtype=np.float), np.array([0,0,0],dtype=np.float), np.array([1,0,0],dtype=np.float)), \
-            Player(None, self.car_list[0], np.array([1,0,0],dtype=np.float), np.array([0,0,0],dtype=np.float), np.array([1,0,0],dtype=np.float)), \
-            Player(None, self.car_list[0], np.array([-1,0,0],dtype=np.float), np.array([0,0,0],dtype=np.float), np.array([1,0,0],dtype=np.float)), \
-            Player(None, self.car_list[0], np.array([0,1,0],dtype=np.float), np.array([0,0,0],dtype=np.float), np.array([1,0,0],dtype=np.float)) \
-        ]   # プレイヤーのリスト
+
+        self.model = Player(
+            'model',
+            self.car_list[0],
+            np.array([0,0,0],dtype=np.float),
+            np.array([0,0,0],dtype=np.float),
+            np.array([1,0,0],dtype=np.float)
+        )
+        self.model_index = 0
+        self.model_show_angle = 0
+        self.user_car_list = []
+
+        self.filed = None       # フィールド
+        self.player_list = []   # プレイヤー(ユーザーとCPU)のリスト
 
     @staticmethod
     def __printString(string, position, font, color=(1,1,1)):
+        string = bytes(string.encode('utf-8'))               # バイト文字列に変換
         glColor3f(color[0], color[1], color[2])              # 文字色を設定
         glRasterPos3d(position[0], position[1], position[2]) # 文字位置を設定
         for i in range(len(string)):
@@ -293,13 +314,234 @@ class Menu:
             self.__drawRecord           # 戦闘履歴画面(未実装)
 
     def __drawTitle(self):
-        pass
+        glMatrixMode(GL_MODELVIEW)  # モデルビュー行列を選択
+        glLoadIdentity()            # 単位行列で初期化
+        gluLookAt(
+            0, -1, 1,
+            0, 0, 0,
+            0, 0, 1
+        )                           # カメラ視点を設定(モデルビュー行列を設定)
+
+        # タイトルを表示
+        Menu.__printString('HIT BIT', (-6, 0, 0), GLUT_BITMAP_TIMES_ROMAN_24)
+        Menu.__printString('<ENTER>', (-7, -15, 0), GLUT_BITMAP_TIMES_ROMAN_24)
+        # Enterキーで次のメニューへ
+        if self.enter_key == True:
+            self.enter_key = False  # 連続入力防止
+            self.menu_num += 1      # 次のメニューへ移動
 
     def __drawSettingMenu(self):
-        pass
+        glMatrixMode(GL_MODELVIEW)  # モデルビュー行列を選択
+        glLoadIdentity()            # 単位行列で初期化
+        gluLookAt(
+            0, -1, 1,
+            0, 0, 0,
+            0, 0, 1
+        )                           # カメラ視点を設定(モデルビュー行列を設定)
+
+        # セッティングメニューを表示
+        Menu.__printString('SETTING', (-6, 30, 0), GLUT_BITMAP_TIMES_ROMAN_24)
+        Menu.__printString(
+            'PLAYER NUM :  ' + str(self.user_num_list[self.user_num_index]),
+            (-8, 10, 0),
+            GLUT_BITMAP_HELVETICA_18
+        ) # ユーザーの数
+        Menu.__printString(
+            'CPU NUM :  ' + str(self.cpu_num_list[self.cpu_num_index]),
+            (-7, 0, 0),
+            GLUT_BITMAP_HELVETICA_18
+        ) # CUPの数
+        Menu.__printString(
+            'FILED SIZE :  ' + str(self.filed_num_list[self.filed_num_index]),
+            (-7.5, -10, 0),
+            GLUT_BITMAP_HELVETICA_18
+        ) # フィールドのサイズ
+
+        # メニュー上下移動
+        if self.arrow_key['up'] == True:        # 上移動
+            self.arrow_key['up'] = False        # 連続入力防止
+            self.setting_menu_row = (self.setting_menu_row + 2) % 3
+        elif self.arrow_key['down'] == True:    # 下移動
+            self.arrow_key['down'] = False      # 連続入力防止
+            self.setting_menu_row = (self.setting_menu_row + 1) % 3
+        # メニュー左右移動
+        bracket = b'<                                    >'     # 現在選択中のメニューの囲い
+        if self.setting_menu_row == 0:
+            Menu.__printString(bracket, (-10, 10, 0), GLUT_BITMAP_HELVETICA_18)
+            if self.arrow_key['left'] == True:      # 左移動
+                self.arrow_key['left'] = False      # 連続入力防止
+                self.user_num_index = \
+                    (self.user_num_index + len(self.user_num_list) - 1) % len(self.user_num_list)
+            elif self.arrow_key['right'] == True:   # 右移動
+                self.arrow_key['right'] = False     # 連続入力防止
+                self.user_num_index = (self.user_num_index + 1) % len(self.user_num_list)
+        elif self.setting_menu_row == 1:
+            Menu.__printString(bracket, (-10, 0, 0), GLUT_BITMAP_HELVETICA_18)
+            if self.arrow_key['left'] == True:      # 左移動
+                self.arrow_key['left'] = False      # 連続入力防止
+                self.cpu_num_index = \
+                    (self.cpu_num_index + len(self.cpu_num_list) - 1) % len(self.cpu_num_list)
+            elif self.arrow_key['right'] == True:   # 右移動
+                self.arrow_key['right'] = False     # 連続入力防止
+                self.cpu_num_index = (self.cpu_num_index + 1) % len(self.cpu_num_list)
+        elif self.setting_menu_row == 2:
+            Menu.__printString(bracket, (-10, -10, 0), GLUT_BITMAP_HELVETICA_18)
+            if self.arrow_key['left'] == True:      # 左移動
+                self.arrow_key['left'] = False      # 連続入力防止
+                self.filed_num_index = \
+                    (self.filed_num_index + len(self.filed_num_list) - 1) % len(self.filed_num_list)
+            elif self.arrow_key['right'] == True:   # 右移動
+                self.arrow_key['right'] = False     # 連続入力防止
+                self.filed_num_index = (self.filed_num_index + 1) % len(self.filed_num_list)
+
+        # Enterキーで次のメニューへ
+        if self.enter_key == True:
+            # プレイヤー数が2以上のとき
+            if self.user_num_list[self.user_num_index] + self.cpu_num_list[self.cpu_num_index] >= 2:
+                self.enter_key = False  # 連続入力防止
+                self.menu_num += 1      # 次のメニューへ移動
 
     def __drawCarSelectionMenu(self):
-        pass
+        glMatrixMode(GL_MODELVIEW)  # モデルビュー行列を選択
+        glLoadIdentity()            # 単位行列で初期化
+        gluLookAt(
+            0, 1, -0.2,
+            0, 0, 0,
+            0, 1, 0
+        )                           # カメラ視点を設定(モデルビュー行列を設定)
+
+        # bit carの情報を表示
+        Menu.__printString(
+            'PLAYER ' + str(len(self.user_car_list)+1) + '                ').encode('utf-8') ),
+            (20, 0, 20),
+            GLUT_BITMAP_TIMES_ROMAN_24
+        )   # 現在選択しているプレイヤー名
+        Menu.__printString(
+            'Bit Size ' + str(self.model.car.size * 10) + '              ').encode('utf-8') ),
+            (0, 0, -17),
+            GLUT_BITMAP_HELVETICA_18
+        )   # bit carのサイズ
+        Menu.__printString(
+            'Weight ' + str(self.model.car.mass) + '                ',
+            (0, 0, -19),
+            GLUT_BITMAP_HELVETICA_18
+        )   # bit carの重さ
+        Menu.__printString(
+            'Acceleration Force ' + str(self.model.car.torque) + '    ',
+            (0, 0, -21),
+            GLUT_BITMAP_HELVETICA_18
+        )   # bit carの加速力
+        Menu.__printString(
+            'MAX Speed ' + str(self.model.car.max_speed) + '             ',
+            (0, 0, -23),
+            GLUT_BITMAP_HELVETICA_18
+        )   # bit carの最高速
+        Menu.__printString(
+            'Rotation Performance ' + str(self.model.car.rotation) + '',
+            (0, 0, -25),
+            GLUT_BITMAP_HELVETICA_18
+        )   # bit carの旋回性能
+
+        # bit carのモデルを表示
+        glPushMatrix()                          # 前の設定行列をスタックして退避
+        glRotated(self.car_show_angle, 0, 0, 1) # 回転
+        glScaled(10, 10, 10)                    # 拡大
+        self.model.drawCarBody()                # 車のボディを表示
+        glPopMatrix()                           # 前の設定行列をスタックから取り出して復帰
+
+        if self.arrow_key['left'] == True:      # 左移動
+            self.arrow_key['left'] = False      # 連続入力防止
+            self.model_index = (self.model_index + len(self.car_list) - 1) % len(self.car_list)
+        elif self.arrow_key['right'] == True:   # 右移動
+            self.arrow_key['right'] = False     # 連続入力防止
+            self.model_index = (self.model_index + 1) % len(self.car_list)
+
+
+        # Enterキーで次のメニューへ
+        if self.enter_key == True:
+            self.enter_key = False                      # 連続入力防止
+            self.user_car_list.append(self.model.car)   # 選択したモデルを登録
+
+            if len(self.user_car_list) >= self.user_num_list[self.user_num_index]:
+                # 全員のbit carの選択が終了したとき
+                self.__setGameContent()         # ゲーム内容の設定
+                self.menu_num += 1              # 次のメニューへ移動
+
+            else:
+                # 全員のbit carの選択が終了していないとき
+                self.model = Player(
+                    'model',
+                    self.car_list[0],
+                    np.array([0,0,0],dtype=np.float),
+                    np.array([0,0,0],dtype=np.float),
+                    np.array([1,0,0],dtype=np.float)
+                )                               # 次の選択のために表示をリセット
+                self.model_index = 0            # 次の選択のために表示をリセット
+                self.model_show_angle = 0       # 次の選択のために表示をリセット
+
+        # 表示角度を変更
+        self.model_show_angle += 5
+
+    def __setGameContent(self):
+        # フィールドの設定
+        self.filed = Filed(
+            size = self.filed_num_list[self.filed_num_index] # フィールドのサイズ
+            friction = 0.75                                  # 摩擦係数
+            gravity = 9.8                                    # 重力加速度
+        )
+
+        # プレイヤー数を取得
+        user_num = self.user_num_list[self.user_num_index]
+        cpu_num = self.cpu_num_list[self.cpu_num_index]
+        player_num = user_num + cpu_num
+
+        # プレイヤー配置のための変数
+        theta = 0
+        d_theta = 2*np.pi / player_num
+
+        # ユーザーのbit carと初期位置などを設定
+        for i in range(user_num):
+            x = np.cos(theta)
+            y = np.sin(theta)
+            p_x = (self.filed.size/4)*x
+            p_y = (self.filed.size/4)*y
+            theta += d_theta
+
+            user = Player(
+                'User' + str(i),                    # ユーザー名
+                self.user_car_list[i],              # bit car
+                np.array([p_x,p_y,0], np.float),    # 初期位置
+                np.array([0,0,0], np.float),        # 初期速度
+                np.array([x,y,0], np.float)         # 初期角度
+            )
+            self.player_list.append(user)           # リストに追加
+
+        # CPUのbit carと初期位置などを設定
+        for i in range(cpu_num):
+            x = np.cos(theta)
+            y = np.sin(theta)
+            p_x = (self.filed.size/4)*x
+            p_y = (self.filed.size/4)*y
+            theta += d_theta
+
+            cpu = Player(
+                None,                               # CPU名
+                self.car_list[0],                   # bit car
+                np.array([p_x,p_y,0], np.float),    # 初期位置
+                np.array([0,0,0], np.float),        # 初期速度
+                np.array([x,y,0], np.float)         # 初期角度
+            )
+            self.player_list.append(cpu)            # リストに追加
+
+        # 視点の設定
+        self.ortho_size = self.filed.size   # 射影を設定
+        glMatrixMode(GL_PROJECTION)         # 投影行列を選択
+        glLoadIdentity()                    # 単位行列で初期化
+        glOrtho(
+            -self.ortho_size, self.ortho_size,
+            -self.ortho_size, self.ortho_size,
+            -self.ortho_size, self.ortho_size
+        )                                   # 描画領域を設定(投影行列を設定)
 
     def __drawBattleStartCount(self):
         pass
@@ -336,7 +578,7 @@ class Menu:
                 else:
                     if distance < 0.1: # bitの重なり防止のランダム反発
                         sub_x[0] += np.random.rand()*0.5
-                        player_i.velocity[1] += np.random.rand(0.5)
+                        player_i.velocity[1] += np.random.rand()*0.5
 
                     # 運動量保存則から導いた円の衝突の更新式により更新
                     # v1' = v1 - [m2/(m1+m2) * (1+e) * (v1-v2)・(x2-x1)] * (x2-x1)
@@ -358,7 +600,7 @@ class Menu:
         for i, player in enumerate(self.player_list):
             if player.type == Player.TYPE_USER:
                 player.drawCar()                                # 描画
-                player.inputKey(Menu.bit_control_key[i])        # コントロールキー入力
+                player.inputKey(self.bit_control_key[i])        # コントロールキー入力
                 player.update(self.filed.size, self.filed.friction, self.filed.gravity) # 更新
             else:
                 player.drawCar()                                # 描画
@@ -405,7 +647,7 @@ def initialize():
     glEnable(GL_DEPTH_TEST)             # 隠面消去を設定
     glEnable(GL_CULL_FACE)              # カリングを設定(描画不要なところを描画しない)
     global menu
-    menu = Menu()
+    menu = Menu()                       # メニュー画面を生成
 
 def display():
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)  # カラーバッファとデプスバッファをクリア
@@ -413,7 +655,7 @@ def display():
     glutSwapBuffers()  # 実行していないコマンドを全て実行. glFlushの代わり
 
 def resize(w, h):
-    ortho_size = 50
+    ortho_size = menu.ortho_size        # 画面表示サイズを設定
 
     glViewport(0, 0, w, h)              # 全画面表示
     glMatrixMode(GL_PROJECTION)         # 投影行列を選択
@@ -431,102 +673,107 @@ def redisplayLoop(dummy):
 
 def keyboardIn(key, x, y):
     # x,yはkey入力時のマウス位置
+    if key == b'\r':   # Enter Key
+        menu.enter_key = True
     # ユーザー1
-    if key == b'e':
-        Menu.bit_control_key[0][2] = True
+    elif key == b'e':
+        menu.bit_control_key[0][2] = True
     elif key == b'r':
-        Menu.bit_control_key[0][3] = True
+        menu.bit_control_key[0][3] = True
     elif key == b'u':
-        Menu.bit_control_key[0][0] = True
+        menu.bit_control_key[0][0] = True
     elif key == b'i':
-        Menu.bit_control_key[0][1] = True
+        menu.bit_control_key[0][1] = True
     # ユーザー2
     elif key == b'd':
-        Menu.bit_control_key[1][2] = True
+        menu.bit_control_key[1][2] = True
     elif key == b'f':
-        Menu.bit_control_key[1][3] = True
+        menu.bit_control_key[1][3] = True
     elif key == b'j':
-        Menu.bit_control_key[1][0] = True
+        menu.bit_control_key[1][0] = True
     elif key == b'k':
-        Menu.bit_control_key[1][1] = True
+        menu.bit_control_key[1][1] = True
     # ユーザー3
     elif key == b'c':
-        Menu.bit_control_key[2][2] = True
+        menu.bit_control_key[2][2] = True
     elif key == b'v':
-        Menu.bit_control_key[2][3] = True
+        menu.bit_control_key[2][3] = True
     elif key == b'm':
-        Menu.bit_control_key[2][0] = True
+        menu.bit_control_key[2][0] = True
     elif key == b',':
-        Menu.bit_control_key[2][1] = True
+        menu.bit_control_key[2][1] = True
     # ユーザー4
     elif key == b'3':
-        Menu.bit_control_key[3][2] = True
+        menu.bit_control_key[3][2] = True
     elif key == b'4':
-        Menu.bit_control_key[3][3] = True
+        menu.bit_control_key[3][3] = True
     elif key == b'7':
-        Menu.bit_control_key[3][0] = True
+        menu.bit_control_key[3][0] = True
     elif key == b'8':
-        Menu.bit_control_key[3][1] = True
+        menu.bit_control_key[3][1] = True
 
 def keyboardOut(key, x, y):
     # x,yはkey入力時のマウス位置
-    if key == b'e':
-        Menu.bit_control_key[0][2] = False
+    if key == b'\r':   # Enter Key
+        menu.enter_key = False
+    # ユーザー1
+    elif key == b'e':
+        menu.bit_control_key[0][2] = False
     elif key == b'r':
-        Menu.bit_control_key[0][3] = False
+        menu.bit_control_key[0][3] = False
     elif key == b'u':
-        Menu.bit_control_key[0][0] = False
+        menu.bit_control_key[0][0] = False
     elif key == b'i':
-        Menu.bit_control_key[0][1] = False
+        menu.bit_control_key[0][1] = False
     # ユーザー2
     elif key == b'd':
-        Menu.bit_control_key[1][2] = False
+        menu.bit_control_key[1][2] = False
     elif key == b'f':
-        Menu.bit_control_key[1][3] = False
+        menu.bit_control_key[1][3] = False
     elif key == b'j':
-        Menu.bit_control_key[1][0] = False
+        menu.bit_control_key[1][0] = False
     elif key == b'k':
-        Menu.bit_control_key[1][1] = False
+        menu.bit_control_key[1][1] = False
     # ユーザー3
     elif key == b'c':
-        Menu.bit_control_key[2][2] = False
+        menu.bit_control_key[2][2] = False
     elif key == b'v':
-        Menu.bit_control_key[2][3] = False
+        menu.bit_control_key[2][3] = False
     elif key == b'm':
-        Menu.bit_control_key[2][0] = False
+        menu.bit_control_key[2][0] = False
     elif key == b',':
-        Menu.bit_control_key[2][1] = False
+        menu.bit_control_key[2][1] = False
     # ユーザー4
     elif key == b'3':
-        Menu.bit_control_key[3][2] = False
+        menu.bit_control_key[3][2] = False
     elif key == b'4':
-        Menu.bit_control_key[3][3] = False
+        menu.bit_control_key[3][3] = False
     elif key == b'7':
-        Menu.bit_control_key[3][0] = False
+        menu.bit_control_key[3][0] = False
     elif key == b'8':
-        Menu.bit_control_key[3][1] = False
+        menu.bit_control_key[3][1] = False
 
 def keyboardSpIn(key, x, y):
     # x,yはkey入力時のマウス位置
     if key == GLUT_KEY_UP:
-        Menu.key_arrow[0] = True
+        menu.arrow_key['up'] = True
     elif key == GLUT_KEY_DOWN:
-        Menu.key_arrow[1] = True
+        menu.arrow_key['down'] = True
     elif key == GLUT_KEY_LEFT:
-        Menu.key_arrow[2] = True
+        menu.arrow_key['left'] = True
     elif key == GLUT_KEY_RIGHT:
-        Menu.key_arrow[3] = True
+        menu.arrow_key['right'] = True
 
 def keyboardSpOut(key, x, y):
     # x,yはkey入力時のマウス位置
     if key == GLUT_KEY_UP:
-        Menu.key_arrow[0] = False
+        menu.arrow_key['up'] = False
     elif key == GLUT_KEY_DOWN:
-        Menu.key_arrow[1] = False
+        menu.arrow_key['down'] = False
     elif key == GLUT_KEY_LEFT:
-        Menu.key_arrow[2] = False
+        menu.arrow_key['left'] = False
     elif key == GLUT_KEY_RIGHT:
-        Menu.key_arrow[3] = False
+        menu.arrow_key['right'] = False
 
 if __name__ == '__main__':
     main()
