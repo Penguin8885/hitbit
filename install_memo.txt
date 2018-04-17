@@ -1,0 +1,13 @@
+環境構築手順(2018/1/10)
+
+1. pyopenglの公式サイトからpythonのバーションを確認
+	http://pyopengl.sourceforge.net/
+2. 対応するpythonをインストール(version 3.3以上)
+3. pip install PyOpenGL PyOpenGL_accelerate
+4. freeglut MSVC 3.0.0 をサイトからダウンロード
+	https://www.transmissionzero.co.uk/software/freeglut-devel/
+5. freeglut\bin\x64\freeglut.dll を以下のいずれかのディレクトリに入れる
+	C:\Windows\System32
+	ワーキングディレクトリ
+	パスが通っているディレクトリ
+
