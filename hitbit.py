@@ -100,7 +100,7 @@ class Player:
         d_min = np.inf      # 距離が一番近いplayerまでの距離
         d_min_index = -1    # 距離が一番近いplayerのインデックス
         for i, player in enumerate(player_list):
-            if player.position[2] < 0 or player == self:
+            if player.position[2] < 0 or player is self:
                 continue    # 相手が場外(死んでいない)のとき，相手が自分であるときスキップ
             else:
                 # 一番近いplayerを探す
@@ -262,17 +262,17 @@ class Menu:
         self.setting_menu_row = 0               # 設定画面メニュー選択行
         self.user_num_list = [1, 2, 3, 4, 0]    # ユーザー数の選択リスト
         self.user_num_index = 0                 # 選択しているユーザー数の選択リストのインデックス
-        self.cpu_num_list = [5, 10, 50, 0]      # CPU数の選択リスト
+        self.cpu_num_list = [8, 10, 12, 5]      # CPU数の選択リスト
         self.cpu_num_index = 0                  # 選択しているCPU数の選択リストのインデックス
-        self.filed_num_list = [50, 100, 20]     # フィールドサイズの選択リスト
+        self.filed_num_list = [20, 50, 75]      # フィールドサイズの選択リスト
         self.filed_num_index = 0                # 選択しているフィールドサイズの選択リストのインデックス
 
         self.car_list = [\
-            Car(600, 10, 5, 50, 0.6, 1.0, [0,1,0]), \
-            Car(600, 10, 5, 50, 0.6, 1.0, [0,1,1]), \
-            Car(600, 10, 5, 50, 0.6, 1.0, [1,1,0]), \
-            Car(600, 10, 5, 50, 0.6, 1.0, [0,0,1]), \
-            Car(600, 10, 5, 50, 0.6, 1.0, [1,1,1]) \
+            Car(600, 12, 5, 50, 0.6, 1.0, [0,1,0]), \
+            Car(600, 12, 5, 50, 0.6, 1.0, [0,1,1]), \
+            Car(600, 12, 5, 50, 0.6, 1.0, [1,1,0]), \
+            Car(600, 12, 5, 50, 0.6, 1.0, [0,0,1]), \
+            Car(600, 12, 5, 50, 0.6, 1.0, [1,1,1]) \
         ]   # bit carのリスト (加速, 最高速, 旋回, 重量, 反発, サイズ, 色)
 
         self.model = Player(
@@ -327,8 +327,8 @@ class Menu:
         )                           # カメラ視点を設定(モデルビュー行列を設定)
 
         # タイトルを表示
-        Menu.__printString('HIT BIT', (-6, 0, 0), GLUT_BITMAP_TIMES_ROMAN_24)
-        Menu.__printString('<ENTER>', (-7, -15, 0), GLUT_BITMAP_TIMES_ROMAN_24)
+        Menu.__printString('HIT BIT', (-6, 15, 0), GLUT_BITMAP_TIMES_ROMAN_24)
+        Menu.__printString('<ENTER>', (-7, 0, 0), GLUT_BITMAP_TIMES_ROMAN_24)
         # Enterキーで次のメニューへ
         if self.enter_key == True:
             self.enter_key = False  # 連続入力防止
@@ -404,7 +404,15 @@ class Menu:
             # プレイヤー数が2以上のとき
             if self.user_num_list[self.user_num_index] + self.cpu_num_list[self.cpu_num_index] >= 2:
                 self.enter_key = False  # 連続入力防止
-                self.menu_num += 1      # 次のメニューへ移動
+
+                # ユーザーがいるときbit carの選択画面へ移動
+                if self.user_num_list[self.user_num_index] != 0:
+                    self.menu_num += 1      # 次のメニューへ移動
+
+                # ユーザーがいないときbit carの選択画面をスキップ
+                else:
+                    self.__setGameContent() # ゲーム内容の設定
+                    self.menu_num += 2      # 次の次のメニューへ移動
 
     def __drawCarSelectionMenu(self):
         glMatrixMode(GL_MODELVIEW)  # モデルビュー行列を選択
@@ -473,6 +481,7 @@ class Menu:
             if len(self.user_car_list) >= self.user_num_list[self.user_num_index]:
                 # 全員のbit carの選択が終了したとき
                 self.__setGameContent()             # ゲーム内容の設定
+                self.model_show_angle = 0           # リセット
                 self.menu_num += 1                  # 次のメニューへ移動
 
             else:
@@ -556,7 +565,7 @@ class Menu:
 
         self.filed.draw()           # 地面を描画
 
-        for i, player in enumerate(self.player_list):
+        for player in self.player_list:
             player.drawCar()            # bit car描画
             Menu.__printString(
                 player.name,            # 表示名
@@ -571,8 +580,8 @@ class Menu:
             string = 'START'                    # 最後1秒は'START'を表示
         Menu.__printString(
             string,
-            (0, 20, 20),
-            GLUT_BITMAP_HELVETICA_18
+            (-1, 0, 0),
+            GLUT_BITMAP_HELVETICA_18,
             color=(1,0,1)
         ) # 文字列表示
 
@@ -634,7 +643,7 @@ class Menu:
                 j += 1
 
         # bitの描画及びコントロール，更新
-        alive_count = 0
+        self.alive_count = 0 # 生存者カウンター
         for i, player in enumerate(self.player_list):
             if player.type == Player.TYPE_USER:
                 player.drawCar()                                # bit car描画
@@ -647,12 +656,11 @@ class Menu:
 
             # 生存者をカウント
             if player.status == Player.ALIVE:
-                alive_count += 1
+                self.alive_count += 1
 
         # 試合終了判定(生存者が0人または1人)
-        if alive_count == 0 or alive_count == 1:
+        if self.alive_count == 0 or self.alive_count == 1:
             self.menu_num += 1   # 次のメニューへ移動
-
 
     def __drawBattleFinished(self):
         glMatrixMode(GL_MODELVIEW)  # モデルビュー行列を選択
@@ -667,20 +675,20 @@ class Menu:
         for i, player in enumerate(self.player_list):
             player.drawCar()        # bit car描画
         Menu.__printString(
-            'FINISH'
-            (0, 20, 20)
+            'FINISH',
+            (-1, 0, 0),
             GLUT_BITMAP_HELVETICA_18,
             color=(1,0,1)
         )                           # 'FINISH'を描画
 
         # カウントダウンを計算
         if self.wait < 3:
-            wait += self.delta_t
+            self.wait += self.delta_t
         else:
             self.wait = 0       # 待ち時間を初期化
 
             # 視点をリセット
-            self.ortho_size = self.filed.size   # 描画領域の数値を設定
+            self.ortho_size = 50                # 描画領域の数値を設定
             glMatrixMode(GL_PROJECTION)         # 投影行列を選択
             glLoadIdentity()                    # 単位行列で初期化
             glOrtho(
@@ -689,11 +697,62 @@ class Menu:
                 -self.ortho_size, self.ortho_size
             )                                   # 描画領域を設定(投影行列を設定)
 
+            # Winnerをモデルとして保持
+            if self.alive_count != 0:
+                for player in self.player_list:
+                    if player.status == Player.ALIVE:
+                        self.model.name = player.name   # Winnerの名前を保持
+                        self.model.car = player.car     # Winnerのbit carを保持
+                        break                           # 生存者は1人しかいないので終了
+
             self.menu_num += 1  # 次のメニューへ移動
 
-
     def __drawWinner(self):
-        pass
+        glMatrixMode(GL_MODELVIEW)  # モデルビュー行列を選択
+        glLoadIdentity()            # 単位行列で初期化
+        gluLookAt(
+            0, 1, -0.2,
+            0, 0, 0,
+            0, 1, 0
+        )                           # カメラ視点を設定(モデルビュー行列を設定)
+
+        # 生存者が1人だけのとき
+        if self.alive_count == 1:
+            # Winnerの情報を表示
+            Menu.__printString(
+                'WINNER',
+                (3, 0, 20),
+                GLUT_BITMAP_TIMES_ROMAN_24
+            )   # 'WINNER'と表示
+            Menu.__printString(
+                self.model.name,    # Winnerの情報はmodelに保持してある
+                (1.5, 0, -25),
+                GLUT_BITMAP_HELVETICA_18
+            )   # Winnerの名前を表示
+
+            # bit carのモデル(Winner)を表示
+            glPushMatrix()                              # 前の設定行列をスタックして退避
+            glRotated(self.model_show_angle, 0, 0, 1)   # 回転
+            glScaled(10, 10, 10)                        # 拡大
+            self.model.drawCarBody()                    # 車のボディを表示
+            glPopMatrix()                               # 前の設定行列をスタックから取り出して復帰
+
+            # 表示角度を変更
+            self.model_show_angle += 5
+
+        # 生存者がいないとき
+        else:
+            Menu.__printString(
+                'DRAW',
+                (0, 0, 0),
+                GLUT_BITMAP_TIMES_ROMAN_24
+            ) # 'DRAW'(引き分け)と表示
+
+        # Enterキーで次のメニューへ
+        if self.enter_key == True:
+            self.enter_key = False      # 連続入力防止
+            self.__init__()             # 全設定をリセット
+            Player.cpu_id_counter = 1   # CPUのIDカウンターをリセット
 
     def __drawRecord(self):
         pass # (未実装)
@@ -710,7 +769,7 @@ menu = None
 def main():
     glutInit(sys.argv)
     glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH) # RGBカラー, ダブルバッファリング, 隠面消去
-    glutInitWindowSize(1080, 1080)                  # ウィンドウ初期サイズ
+    glutInitWindowSize(1080, 700)                   # ウィンドウ初期サイズ
     glutInitWindowPosition(0, 0)                    # ウィンドウ初期位置
     glutCreateWindow(sys.argv[0].encode('utf-8'))   # ウィンドウ生成，表示
     initialize()                                    # 初期化
